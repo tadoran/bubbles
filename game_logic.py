@@ -44,7 +44,6 @@ class GameItem(QObject):
 class GameCell(QObject):
     """Contains blueprint of a cell on game field"""
     changed = pyqtSignal()
-    active_status_changed = pyqtSignal(bool)
     next_color = pyqtSignal(object)
 
     def __init__(self, parent_field, y: int, x: int, item: GameItem = None):
@@ -79,15 +78,6 @@ class GameCell(QObject):
 
         self.changed.emit()
 
-    @property
-    def active(self):
-        return self._active
-
-    @active.setter
-    def active(self, is_active: bool):
-        self._active = is_active
-        self.active_status_changed.emit(is_active)
-
     def reset(self):
         self.item = None
         self.active = False
@@ -106,20 +96,22 @@ class GameField(QObject):
     WIDTH = 10
     HEIGHT = 10
     ITEMS_IN_LINE = 2
-    MOVE_SPEED_MS = 40
-    COLORS_ON_FIELD = 3
-    COLORS = ["blueviolet", "brown", "darkgreen", "darkmagenta", "darkorange", "deeppink", "gold",
-              "limegreen", "mediumslateblue", "orangered", "white"]
+    MOVE_SPEED_MS = 30
+    COLORS_ON_FIELD = 6
+    COLORS = ["darkgreen", "darkmagenta", "darkorange", "deeppink", "yellow",
+              "mediumseagreen", "darkblue", "skyblue", "firebrick", "blue"]
 
     field_was_reset = pyqtSignal()
+    items_were_spawned = pyqtSignal()
     cells_cleared = pyqtSignal(int)
     item_moved = pyqtSignal()
     loose = pyqtSignal()
 
-    def __init__(self, height: int = 0, width: int = 0):
+    def __init__(self, height: int = 0, width: int = 0, colors=COLORS_ON_FIELD):
         super(GameField, self).__init__()
 
-        self.field_colors = sample(self.COLORS, self.COLORS_ON_FIELD)
+        self.field_colors = sample(self.COLORS, colors)
+        # self.field_colors = sample(self.COLORS, len(self.COLORS))
         if width != 0:
             self.WIDTH = width
         if height != 0:
@@ -158,6 +150,7 @@ class GameField(QObject):
             if cell.item is None:
                 cell.item = item
                 self.move_item(cell)
+        self.items_were_spawned.emit()
 
     def move_item(self, cell, second_try: bool = False):
         current_cell = cell
@@ -211,7 +204,7 @@ class GameField(QObject):
         for current_cell in same_items:
             added_cells = []
             for d in directions:
-                new_point = QPoint(current_cell.x + d.x(),current_cell.y + d.y())
+                new_point = QPoint(current_cell.x + d.x(), current_cell.y + d.y())
                 if not rect.contains(new_point):
                     continue
                 else:
@@ -229,18 +222,40 @@ class GameField(QObject):
         if cell.item:
             same_items = self.find_same_items(cell)
             if len(same_items) >= self.ITEMS_IN_LINE:
-                lines_to_move = set()
+                lines_to_shift_down = set()
                 for removed_cell in same_items:
                     removed_cell.item = None
-                    lines_to_move.add(removed_cell.x)
+                    lines_to_shift_down.add(removed_cell.x)
 
-                for x in lines_to_move:
-                    cells_to_move = list(self.items[:, x])
-                    # cells_to_move.sort(key=lambda c: c.y)
-                    for line_cell in reversed(cells_to_move):
-                        self.move_item(line_cell)
+                for x in lines_to_shift_down:
+                    for y in range(self.HEIGHT - 1, 0, -1):
+                        if self.items[y, x].item:
+                            pass
+                        else:
+                            cells_above = [c.y for c in self.items[:y, x] if c.item]
+                            if len(cells_above) == 0:
+                                break
+
+                            nearest_filled_y = max(cells_above)
+                            self.items[y, x].item = self.items[nearest_filled_y, x].item
+                            self.items[nearest_filled_y, x].item = None
+
+                max_x = max(lines_to_shift_down)
+                for x in range(max_x, 0, -1):
+                    column = self.items[:, x]
+                    filled_cells_count = sum(c.item is not None for c in column)
+                    if filled_cells_count == 0:
+                        for xn in range(x - 1, -1, -1):
+                            column_n = self.items[:, xn]
+                            filled_cells_count_n = sum(c.item is not None for c in column_n)
+                            if filled_cells_count_n > 0:
+                                for shifted_cell in column:
+                                    shifted_cell.item = self.items[shifted_cell.y, xn].item
+                                    self.items[shifted_cell.y, xn].item = None
+                                break
 
                 top_row_filled_cells = sum([c.item is not None for c in self.items[0, :]])
                 if top_row_filled_cells == 0:
                     self.spawn_items()
-            # print(top_row_filled_cells)
+
+                self.cells_cleared.emit(len(same_items))
