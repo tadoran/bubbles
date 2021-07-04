@@ -45,7 +45,7 @@ class FieldItemWidget(QPushButton):
         policy.setWidthForHeight(True)
         self.setSizePolicy(policy)
 
-        self.logic_source = self.parent().logic_source.items[y,x]
+        self.logic_source = self.parent().logic_source.items[y, x]
         self.logic_source.changed.connect(self.changed)
 
         self.gradient = None
@@ -126,8 +126,9 @@ class GameFieldWidget(QWidget):
 
         self.logic_source = logic_source
 
-        self.logic_source.item_moved.connect(self.parent().sounds.tick2.play)
-        self.logic_source.cells_cleared.connect(self.parent().sounds.line_cleared.play)
+        self.logic_source.items_were_spawned.connect(self.parent().sounds.tick2.play)
+        bubble_sounds = self.parent().sounds
+        self.logic_source.cells_cleared.connect(bubble_sounds.bubbles_play)
 
         layout = QGridLayout()
         self.setLayout(layout)
@@ -155,12 +156,12 @@ class GameFieldWidget(QWidget):
         painter = QPainter(self)
         # color = QColor("peachpuff")
         # color.setAlpha(60)
-        color = QColor("white")
-        color.setAlpha(160)
+        color = QColor("darkgreen")
+        color.setAlpha(30)
         brush = QBrush(color)
         painter.setBrush(brush)
         painter.setPen(Qt.NoPen)
-        painter.drawRoundedRect(self.rect() + (QMargins()-1), 20, 20)
+        painter.drawRoundedRect(self.rect() + (QMargins() - 1), 20, 20)
         # painter.fillRect(self.rect(), brush)
 
     def resizeEvent(self, event):
@@ -217,7 +218,8 @@ class InformationBar(QWidget):
         brush = QBrush(color)
         painter.setBrush(brush)
         painter.setPen(Qt.NoPen)
-        painter.drawRoundedRect(self.rect() + (QMargins()-1), 10, 10)
+        painter.drawRoundedRect(self.rect() + (QMargins() - 1), 10, 10)
+
 
 class GameActions(QObject):
     def __init__(self, *args, **kwargs):
@@ -249,12 +251,12 @@ class MainWindow(QMainWindow):
 
     def __init__(self, *args, **kwargs):
         super(MainWindow, self).__init__(*args, **kwargs)
-        self.setWindowTitle("Lines")
+        self.setWindowTitle("Bubble trouble")
         self.setWindowIcon(QIcon("FILE.ico"))
         self.sounds = Sounds()
         # self.menuBar().show()
 
-        self.logic_source = GameField(10, 5)
+        self.logic_source = GameField(height=10, width=10, colors=5)
 
         self.mainWidget = QWidget(self)
         self.setCentralWidget(self.mainWidget)
@@ -282,7 +284,7 @@ class MainWindow(QMainWindow):
         policy.setHorizontalPolicy(size_policy)
         policy.setVerticalPolicy(size_policy)
         self.setSizePolicy(policy)
-        self.logic_source.spawn_items()
+        # self.logic_source.spawn_items()
         self.show()
 
     def reset_scores(self):
