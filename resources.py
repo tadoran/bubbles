@@ -33,7 +33,7 @@ class Sounds(QObject):
                        self.bubbles_07,
                        # self.bubbles_08,
                        self.bubbles_09])
-        print(sound.fileName())
+        # print(sound.fileName())
         sound.play()
 
     def play(self):

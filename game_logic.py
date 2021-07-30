@@ -152,6 +152,30 @@ class GameField(QObject):
                 self.move_item(cell)
         self.items_were_spawned.emit()
 
+    def is_same_cells_present(self):
+
+        np_colors = np.vectorize(lambda x: x.item.color if x.item else "None")
+        # Shift, axis (Right, Down, Left, Up)
+        possible_moves = [(1, 1), (1, 0), (-1, 1), (-1, 0)]
+        current_colors = np_colors(self.items)
+        for move in possible_moves:
+            shifted_items = np_colors(np.roll(self.items, move[0], move[1]))
+            if move[0] > 0:
+                element_to_clear = 0
+            elif move[0] < 0:
+                element_to_clear = -1
+
+            if move[1] == 0:
+                shifted_items[element_to_clear, :] = "None"
+            elif move[1] == 1:
+                shifted_items[:, element_to_clear] = "None"
+
+            if np.any((current_colors == shifted_items) & (current_colors != "None") & (shifted_items != "None")):
+                return True
+        return False
+
+        # print(current_colors)
+
     def move_item(self, cell, second_try: bool = False):
         current_cell = cell
         next_cell = None
@@ -259,3 +283,8 @@ class GameField(QObject):
                     self.spawn_items()
 
                 self.cells_cleared.emit(len(same_items))
+            # Item clicked has no same neighbours
+            else:
+                if not self.is_same_cells_present():
+                    print("You loose!")
+                    self.loose.emit()
